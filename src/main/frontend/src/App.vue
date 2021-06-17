@@ -8,7 +8,7 @@
       <h2>Witaj {{ authenticatedUsername }}!
         <a @click="logout()" class="float-right  button-outline button">Wyloguj</a>
       </h2>
-      <meetings-page :username="authenticatedUsername"></meetings-page>
+      <meetings-page :username="authenticatedUsername" :meetings="meetings"></meetings-page>
     </div>
     <div v-else>
       <button @click="registering = false" :class="registering ? 'button-outline' : ''">Loguję się</button>
@@ -32,7 +32,8 @@
                 authenticatedUsername: "",
                 registering: false,
                 message: '',
-                isError: false
+                isError: false,
+                meetings: []
             };
         },
         methods: {
@@ -51,8 +52,38 @@
                     .then(response => {
                         const token = response.body.token;
                         this.storeAuth(user.login, token);
+                        this.getMeetings();
                     })
                     .catch(() => this.failure('Logowanie nieudane.'));
+                    
+                    
+            },
+            getMeetingParticipants(meeting){
+            return	 this.$http.get(`meetings/${meeting.id}/participants`)
+                    .then((r) => {
+                        this.success('');
+                        console.log('participantsx',r.body.map(obj => obj.login));
+                        return r.body.map(obj => obj.login);
+                    })
+                    .catch(response => this.failure('Błąd przy pobieraniu uczestników. Kod odpowiedzi: ' + response.status));
+            },
+            getMeetings() {
+            	this.$http.get('meetings')
+                    .then((response) => {
+                        this.success('');
+                        for(let meeting of response.body) {  
+                       this.getMeetingParticipants(meeting)
+                       .then((participants) => {
+                       console.log('inside getParticipants');
+                       		this.meetings.push({id: meeting.id, 
+                        					name: meeting.name, 
+                        					description: meeting.description, 
+                        					participants: participants});
+                       })             
+                        
+                        }
+                    })
+                    .catch(response => this.failure('Nie można wyświetlić spotkań: ' + response.status));
             },
             storeAuth(username, token) {
                 this.authenticatedUsername = username;
@@ -62,6 +93,8 @@
             },
             logout() {
                 this.authenticatedUsername = '';
+                this.meetings = [];
+                this.isError = false;
                 delete Vue.http.headers.common.Authorization;
                 localStorage.clear();
             },

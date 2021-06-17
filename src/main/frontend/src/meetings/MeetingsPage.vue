@@ -5,6 +5,7 @@
     <span v-if="meetings.length == 0">
                Brak zaplanowanych spotkań.
            </span>
+     <div :class="'alert alert-' + (this.isError ? 'error' : '')" v-if="message">{{ message }}</div>
     <h3 v-else>
       Zaplanowane zajęcia ({{ meetings.length }})
     </h3>
@@ -23,25 +24,58 @@
 
     export default {
         components: {NewMeetingForm, MeetingsList},
-        props: ['username'],
+        props: ['username', 'meetings'],
         data() {
             return {
-                meetings: []
+                message: '',
+                isError: false
             };
         },
         methods: {
             addNewMeeting(meeting) {
-                this.meetings.push(meeting);
+            
+            this.$http.post('meetings', meeting)
+                    .then((response) => {
+                         this.meetings.push({id: response.body.id, name:meeting.name, description: meeting.description, participants: meeting.participants});
+                         this.success('');
+                    })
+                    .catch(response => this.failure('Błąd przy rejestracji spotkania. Kod odpowiedzi: ' + response.status));
             },
             addMeetingParticipant(meeting) {
-                meeting.participants.push(this.username);
+            	 this.$http.post(`meetings/${meeting.id}/${this.username}`)
+                    .then(() => {
+                         meeting.participants.push(this.username);
+                         this.success('');
+                    })
+                    .catch(response => this.failure('Błąd przy zapisywaniu się do spotkania. Kod odpowiedzi: ' + response.status));
+                
             },
             removeMeetingParticipant(meeting) {
-                meeting.participants.splice(meeting.participants.indexOf(this.username), 1);
+            	 this.$http.delete(`meetings/${meeting.id}/${this.username}`)
+                    .then(() => {
+                          meeting.participants.splice(meeting.participants.indexOf(this.username), 1);
+                         this.success('');
+                    })
+                    .catch(response => this.failure('Błąd przy wypisywaniu się ze spotkania. Kod odpowiedzi: ' + response.status));
+               
             },
             deleteMeeting(meeting) {
-                this.meetings.splice(this.meetings.indexOf(meeting), 1);
-            }
+            	this.$http.delete(`meetings/${meeting.id}`)
+                    .then(() => {
+                         this.meetings.splice(this.meetings.indexOf(meeting), 1);
+                         this.success('');
+                    })
+                    .catch(response => this.failure('Błąd podczas usuwania spotkania. Kod odpowiedzi: ' + response.status));
+                
+            },
+             success(message) {
+                this.message = message;
+                this.isError = false;
+            },
+            failure(message) {
+                this.message = message;
+                this.isError = true;
+            },
         }
     }
 </script>
